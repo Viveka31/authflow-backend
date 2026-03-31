@@ -9,17 +9,25 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Allow multiple origins — comma-separated in CLIENT_URL env var
-// e.g. CLIENT_URL=https://myapp.netlify.app,https://myapp.vercel.app
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
-  .split(',')
-  .map(o => o.trim());
-
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (Render health checks, Postman, etc.)
+    // Allow requests with no origin (Render health checks, curl, Postman)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    // Always allow localhost for local dev
+    if (origin.includes('localhost')) return callback(null, true);
+
+    // Allow any Vercel deployment URL (main + all preview URLs)
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+
+    // Allow any Netlify deployment URL
+    if (origin.endsWith('.netlify.app')) return callback(null, true);
+
+    // Allow explicitly set CLIENT_URL (comma-separated list supported)
+    const allowed = (process.env.CLIENT_URL || '').split(',').map(o => o.trim());
+    if (allowed.includes(origin)) return callback(null, true);
+
+    // Block everything else
     callback(new Error(`CORS blocked: ${origin}`));
   },
   credentials: true,
